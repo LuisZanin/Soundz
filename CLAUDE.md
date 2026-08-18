@@ -15,6 +15,10 @@ Contexto do projeto para o Claude. Manter atualizado a cada mudança relevante.
 - Fala português (PT-BR). **Não conhece C#** — explicar conceitos da linguagem
   e do WPF conforme aparecem, de forma curta e prática.
 - Especificação original do projeto: `plano.md` (fonte da verdade do escopo).
+  ⚠️ Esse arquivo **não está no repositório** — é material de trabalho, sem
+  utilidade para quem só usa o app, e o usuário optou por não publicá-lo
+  (`.gitignore`). Ele continua na máquina. As menções a ele adiante são
+  contexto histórico: explicam por que certas decisões contrariam o plano.
 
 ## O que é
 
@@ -60,13 +64,13 @@ o "CABLE Output" como microfone e ouvem voz + efeitos.
   **não verificados**: a sintaxe do `.iss`, o tamanho final do `Setup.exe`, a
   instalação sem UAC, a página de pré-requisito e os atalhos. A primeira tag
   `v*` é o primeiro teste de verdade — conferir tudo isso lá.
-- ⬜ **Falta um `.ico`.** A marca só existe como `DrawingImage` no XAML, então
-  o `Soundz.exe` aparece com ícone genérico no Explorador e no instalador.
-  É também pré-requisito para qualquer ícone de bandeja no futuro.
+- ✅ **`Soundz.ico` existe** (decisão 22): 9 tamanhos verificados no arquivo
+  (16→256, todos com canal alfa), gerado do próprio tema e embutido no
+  executável. O ícone genérico do Windows sumiu.
 - ⬜ **Não existe ícone de bandeja nem início com o Windows.** Foi conversado
   em 18/08 e explicitamente adiado — não há nada disso no código. Fechar no X
   fecha o app de verdade e corta a voz que vai para o cabo; minimizar mantém
-  tudo rodando.
+  tudo rodando. O `.ico`, que era o pré-requisito, já está pronto.
 - .NET 8 SDK (8.0.424) foi instalado via winget nesta máquina (não havia SDK).
   `dotnet` pode não estar no PATH de shells já abertos — se falhar, recarregar
   o PATH: `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine')`.
@@ -83,12 +87,14 @@ o "CABLE Output" como microfone e ouvem voz + efeitos.
 | `SoundItem.cs` | Um som da grade (nome, duração, arte, IsPlaying) |
 | `AudioEngine.cs` | TODA a lógica de áudio (captura, mixagem, saídas) |
 | `AppConfig.cs` | Preferências em JSON (`%APPDATA%\Soundz\config.json`) |
-| `plano.md` | Especificação original do usuário |
 | `README.md` | Instruções de uso/instalação do VB-Cable |
 | `LICENSE` | MIT |
+| `Soundz.ico` | Ícone do executável — **gerado**, não editar na mão |
+| `tools/gerar-icone.ps1` | Rasteriza o `Soundz.ico` a partir do tema |
 | `installer/soundz.iss` | Script do Inno Setup que gera o `Setup.exe` |
 | `.github/workflows/release.yml` | CI que compila e publica a release na tag `v*` |
 | `design/` | Mockups e capturas. **Fora do git** (`.gitignore`) — só local |
+| `plano.md` | Especificação original. **Fora do git** — só local |
 
 ## Identidade visual (Obsidian & Ruby)
 
@@ -319,6 +325,28 @@ Decisões importantes:
       biblioteca de sons do usuário.
     - O `Setup.exe` **não é assinado** (certificado é pago), então o SmartScreen
       avisa. Documentado no README e no corpo da release.
+
+22. **Ícone do executável** (18/08). O usuário reportou que a logo não
+    aparecia; a verificação separou dois problemas diferentes:
+    - `Window.Icon="{StaticResource LogoIcon}"` **funciona** — a janela aberta
+      mostra a marca na barra de tarefas. Isso nunca esteve quebrado.
+    - O `.exe` não tinha **recurso de ícone nenhum** (`ApplicationIcon` não
+      estava declarado). Por isso o Explorador, os atalhos do menu Iniciar e da
+      área de trabalho, o ícone fixado e o instalador mostravam o ícone
+      genérico azul do Windows. Confirmado por extração antes e depois.
+    - Correção: `<ApplicationIcon>Soundz.ico</ApplicationIcon>` no `.csproj`,
+      mais `SetupIconFile` e `UninstallDisplayIcon` no `.iss`.
+    - **O `.ico` é gerado, não desenhado**: `tools/gerar-icone.ps1` carrega
+      `Themes/Obsidian.xaml`, pega o `LogoImage` e rasteriza cada tamanho
+      **no seu próprio tamanho** a partir do vetor (não reduzindo de um grande
+      só), que é o que mantém o traço nítido em 16px. Formato Pbgra32 para
+      preservar o fundo transparente. Mexeu na marca? Rode o script de novo.
+    - **Variante escolhida: a marca como está, sem ladrilho** (decisão do
+      usuário). Foram testadas três — transparente, ladrilho escuro e ladrilho
+      rubi — e a rubi era objetivamente a mais legível em 16px, inclusive
+      porque branco sobre rubi dá 8.45:1 enquanto o anel fino de rubi sobre
+      fundo escuro dá 2.04:1 (a própria regra de contraste do projeto). O
+      usuário preferiu fidelidade à marca. **Não trocar sem perguntar de novo.**
 
 ## Investigação: "a voz só sai depois que eu toco um som" (18/08, em aberto)
 

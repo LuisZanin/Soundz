@@ -40,6 +40,10 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 
+; Ícone do próprio Setup.exe e da entrada em "Aplicativos instalados".
+SetupIconFile=..\Soundz.ico
+UninstallDisplayIcon={app}\{#AppExe}
+
 OutputDir=Output
 OutputBaseFilename=Soundz-{#AppVersion}-setup
 Compression=lzma2/max

@@ -14,6 +14,13 @@
     <RootNamespace>Soundboard</RootNamespace>
     <AssemblyName>Soundz</AssemblyName>
     <Product>Soundz</Product>
+
+    <!-- Ícone do executável: é ele que o Explorador, os atalhos do menu
+         Iniciar e da área de trabalho, e o ícone fixado na barra de tarefas
+         usam. Sem isto o Windows mostra o ícone genérico de aplicativo.
+         O arquivo é gerado a partir de Themes/Obsidian.xaml por
+         tools\gerar-icone.ps1 — não editar na mão. -->
+    <ApplicationIcon>Soundz.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

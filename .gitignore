@@ -15,3 +15,7 @@ installer/Output/
 # mockups, capturas de tela e specs de design gerados durante o
 # desenvolvimento. Os arquivos continuam na máquina, só não sobem.
 design/
+
+# Especificação original do projeto: material de trabalho, não interessa a
+# quem só usa o app. Ficou no histórico do primeiro commit, e tudo bem.
+plano.md
