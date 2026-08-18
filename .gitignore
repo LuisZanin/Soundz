@@ -1,0 +1,17 @@
+# Saídas de build
+bin/
+obj/
+publish/
+
+# Saída do instalador (gerada pelo GitHub Actions)
+installer/Output/
+
+# Arquivos de usuário do Visual Studio / Rider
+*.user
+.vs/
+.idea/
+
+# Material de trabalho que NÃO vai para o repositório público:
+# mockups, capturas de tela e specs de design gerados durante o
+# desenvolvimento. Os arquivos continuam na máquina, só não sobem.
+design/

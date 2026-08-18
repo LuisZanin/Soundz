@@ -1,0 +1,95 @@
+# ============================================================
+#  Publica uma release do Soundz.
+#
+#  Dispara quando você empurra uma tag começando com "v":
+#      git tag v1.0.0
+#      git push origin v1.0.0
+#
+#  O que ele faz: compila em self-contained (o .NET 8 vai dentro,
+#  então o usuário final não instala runtime nenhum), empacota com
+#  o Inno Setup e anexa o Setup.exe na aba Releases do GitHub.
+# ============================================================
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Permite rodar na mão pelo site do GitHub, para testar sem criar tag.
+  workflow_dispatch:
+
+permissions:
+  # Necessário para o passo que cria a release.
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # A tag v1.2.3 vira a versão 1.2.3 do instalador. Rodando na mão
+      # (sem tag), usa 0.0.0 só para o build não falhar.
+      - name: Descobrir a versão
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "value=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Self-contained e NÃO single-file: o instalador já entrega uma pasta,
+      # então empacotar tudo num .exe só não traria vantagem e ainda pagaria
+      # o custo de descompactar a cada abertura.
+      - name: Publicar (self-contained win-x64)
+        run: >
+          dotnet publish Soundz.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:Version=${{ steps.version.outputs.value }}
+          -o publish
+
+      # O runner do Windows já costuma trazer o Inno Setup, mas instalar por
+      # cima é barato e garante que o build não quebre se a imagem mudar.
+      - name: Garantir o Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Gerar o instalador
+        run: >
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          /DAppVersion=${{ steps.version.outputs.value }}
+          installer\soundz.iss
+
+      - name: Guardar o instalador como artefato do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Soundz-setup
+          path: installer/Output/*.exe
+
+      - name: Publicar na aba Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/*.exe
+          generate_release_notes: true
+          body: |
+            ## Instalação
+
+            Baixe o `Soundz-*-setup.exe` abaixo e execute.
+
+            > O instalador não é assinado digitalmente (certificado de
+            > assinatura é pago). O Windows vai mostrar um aviso do
+            > SmartScreen: clique em **Mais informações → Executar assim
+            > mesmo**. O código-fonte inteiro está neste repositório.
+
+            **Você também precisa do [VB-Audio Virtual Cable](https://vb-audio.com/Cable/)**,
+            que é gratuito e se instala separadamente. Sem ele o Soundz abre,
+            mas o Discord não ouve nada — o porquê está no README.

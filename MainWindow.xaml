@@ -1,0 +1,506 @@
+<Window x:Class="Soundboard.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Soundz" Height="680" Width="1000" MinHeight="520" MinWidth="820"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Obsidian}"
+        Foreground="{StaticResource TextHi}"
+        FontFamily="{StaticResource FontText}"
+        Icon="{StaticResource LogoIcon}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <!--
+        WindowChrome remove a barra de título do Windows mas mantém redimensionar,
+        arrastar, snap e os atalhos do sistema. CaptionHeight é a faixa de cima que
+        continua funcionando como "pegar e arrastar a janela".
+    -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="34" ResizeBorderThickness="6"
+                      GlassFrameThickness="0" CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+
+        <!-- Converte true/false em Visible/Collapsed. Vem pronto no WPF. -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Pulso da bolinha de status quando o mixer está saudável. -->
+        <Storyboard x:Key="StatusPulse" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="StatusDot"
+                             Storyboard.TargetProperty="Opacity"
+                             From="1" To="0.3" Duration="0:0:1"
+                             AutoReverse="True"/>
+        </Storyboard>
+
+        <!--
+            O CARD DE SOM.
+            Um DataTemplate diz "quando eu precisar mostrar um SoundItem na tela,
+            desenhe assim". A grade cria um destes por som automaticamente, e
+            {Binding Name} puxa a propriedade Name daquele item.
+        -->
+        <DataTemplate x:Key="SoundCardTemplate">
+            <Button x:Name="CardRoot" Style="{StaticResource CardButton}"
+                    Click="Card_Click" Tag="{Binding StateTag}"
+                    ToolTip="{Binding Path}"
+                    AutomationProperties.Name="{Binding Name}">
+                <StackPanel>
+
+                    <!-- Arte: gradiente + onda + botão de play que sobe no hover -->
+                    <Grid Height="126">
+                        <Border CornerRadius="{StaticResource CornerSm}" Background="{Binding Art}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#FF000000" BlurRadius="16" ShadowDepth="6" Opacity="0.5"/>
+                            </Border.Effect>
+                        </Border>
+
+                        <Viewbox Width="76" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.8">
+                            <Path Data="{StaticResource IconWave}" Stroke="White" StrokeThickness="1.6"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Viewbox>
+
+                        <!-- Botão dentro do botão: este toca na hora, o card
+                             em volta só carrega o som na barra de baixo. -->
+                        <Button x:Name="Fab" Style="{StaticResource FabButton}"
+                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                Margin="0,0,8,8" Opacity="0"
+                                Click="Fab_Click"
+                                ToolTip="Tocar agora"
+                                AutomationProperties.Name="Tocar agora">
+                            <Button.RenderTransform>
+                                <TranslateTransform Y="8"/>
+                            </Button.RenderTransform>
+                            <Path Data="{StaticResource IconPlay}" Fill="White"/>
+                        </Button>
+
+                        <Button x:Name="Remove" Style="{StaticResource CardRemoveButton}"
+                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Margin="0,8,8,0" Opacity="0"
+                                Click="Remove_Click"
+                                ToolTip="Remover som"
+                                AutomationProperties.Name="Remover som">
+                            <Path Data="{StaticResource IconTrash}" StrokeThickness="1.2"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                        </Button>
+                    </Grid>
+
+                    <TextBlock x:Name="CardName" Text="{Binding Name}"
+                               FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextHi}"
+                               TextTrimming="CharacterEllipsis" Margin="0,10,0,0"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                        <!-- Barrinhas de equalizador: só aparecem tocando -->
+                        <StackPanel x:Name="Eq" Orientation="Horizontal" Height="10"
+                                    VerticalAlignment="Center" Margin="0,0,6,0"
+                                    Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVis}}">
+                            <Rectangle x:Name="Bar1" Width="2" Height="10" Margin="0,0,2,0"
+                                       Fill="{StaticResource RubyGlow}" RadiusX="1" RadiusY="1"
+                                       RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform><ScaleTransform ScaleY="0.6"/></Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle x:Name="Bar2" Width="2" Height="10" Margin="0,0,2,0"
+                                       Fill="{StaticResource RubyGlow}" RadiusX="1" RadiusY="1"
+                                       RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform><ScaleTransform ScaleY="1"/></Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle x:Name="Bar3" Width="2" Height="10"
+                                       Fill="{StaticResource RubyGlow}" RadiusX="1" RadiusY="1"
+                                       RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform><ScaleTransform ScaleY="0.4"/></Rectangle.RenderTransform>
+                            </Rectangle>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding DurationText}" FontSize="11"
+                                   Foreground="{StaticResource TextMid}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+
+            <DataTemplate.Triggers>
+                <!-- SourceName aponta para um elemento com nome lá de cima:
+                     "quando o CardRoot estiver sob o mouse, faça isto". -->
+                <Trigger SourceName="CardRoot" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Fab" Property="Opacity" Value="1"/>
+                    <!-- Setter não mira dentro de um transform; troca-se o transform inteiro. -->
+                    <Setter TargetName="Fab" Property="RenderTransform">
+                        <Setter.Value><TranslateTransform Y="0"/></Setter.Value>
+                    </Setter>
+                    <Setter TargetName="Remove" Property="Opacity" Value="1"/>
+                </Trigger>
+
+                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                    <Setter TargetName="Fab" Property="Opacity" Value="1"/>
+                    <Setter TargetName="Fab" Property="RenderTransform">
+                        <Setter.Value><TranslateTransform Y="0"/></Setter.Value>
+                    </Setter>
+                    <Setter TargetName="CardName" Property="Foreground" Value="{StaticResource RubyGlow}"/>
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard x:Name="EqStory">
+                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                <DoubleAnimation Storyboard.TargetName="Bar1"
+                                                 Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                 From="0.35" To="1" Duration="0:0:0.45" BeginTime="0:0:0.10"/>
+                                <DoubleAnimation Storyboard.TargetName="Bar2"
+                                                 Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                 From="1" To="0.35" Duration="0:0:0.45"/>
+                                <DoubleAnimation Storyboard.TargetName="Bar3"
+                                                 Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                 From="0.4" To="0.9" Duration="0:0:0.45" BeginTime="0:0:0.20"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <StopStoryboard BeginStoryboardName="EqStory"/>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <!-- RootBorder recebe uma margem quando a janela é maximizada; sem isso
+         o WindowChrome faz o conteúdo vazar alguns pixels para fora da tela. -->
+    <Border x:Name="RootBorder">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>   <!-- barra de título -->
+                <RowDefinition Height="*"/>    <!-- rail + palco -->
+                <RowDefinition Height="76"/>   <!-- tocando agora -->
+            </Grid.RowDefinitions>
+
+            <!-- ================= BARRA DE TÍTULO ================= -->
+            <Grid Grid.Row="0" Background="{StaticResource Void}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Image Source="{StaticResource LogoIcon}" Width="22" Height="22"/>
+                    <TextBlock Text="Soundz" FontFamily="{StaticResource FontDisplay}"
+                               FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextHi}"
+                               VerticalAlignment="Center" Margin="8,0,0,0"/>
+                </StackPanel>
+
+                <!-- IsHitTestVisibleInChrome tira estes botões da área de arrastar,
+                     senão o clique viraria "arrastar janela" e nunca chegaria neles. -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource WindowButton}" Click="Minimize_Click"
+                            ToolTip="Minimizar" AutomationProperties.Name="Minimizar">
+                        <Path Data="{StaticResource IconMinimize}" Stroke="{Binding Foreground,
+                              RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1"/>
+                    </Button>
+                    <Button x:Name="MaximizeButton" Style="{StaticResource WindowButton}"
+                            Click="Maximize_Click" ToolTip="Maximizar" AutomationProperties.Name="Maximizar">
+                        <Path x:Name="MaximizeIcon" Data="{StaticResource IconMaximize}"
+                              Stroke="{Binding Foreground,
+                              RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1"/>
+                    </Button>
+                    <Button Style="{StaticResource WindowCloseButton}" Click="Close_Click"
+                            ToolTip="Fechar" AutomationProperties.Name="Fechar">
+                        <Path Data="{StaticResource IconClose}" Stroke="{Binding Foreground,
+                              RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ================= CORPO ================= -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ========== RAIL (configuração — acentos em esmeralda) ========== -->
+                <Grid Grid.Column="0" Background="{StaticResource Void}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="16,20,16,0">
+                        <StackPanel>
+
+                            <TextBlock Text="DISPOSITIVOS" Style="{StaticResource RailLabel}"/>
+
+                            <TextBlock Text="Microfone" Style="{StaticResource FieldLabel}"/>
+                            <!-- Trocar dispositivo religa o mixer sozinho (Device_Changed):
+                                 sem botão Iniciar, não há como o usuário reiniciar na mão. -->
+                            <ComboBox x:Name="MicCombo" Style="{StaticResource DarkCombo}"
+                                      SelectionChanged="Device_Changed"
+                                      AutomationProperties.Name="Microfone"/>
+
+                            <TextBlock Text="Saída virtual" Style="{StaticResource FieldLabel}" Margin="0,14,0,6"/>
+                            <ComboBox x:Name="OutputCombo" Style="{StaticResource DarkCombo}"
+                                      SelectionChanged="Device_Changed"
+                                      AutomationProperties.Name="Saída virtual"/>
+
+                            <!-- Chip de duas caras (o code-behind troca cor, ícone e texto):
+                                 esmeralda quando a saída escolhida é um cabo virtual, âmbar
+                                 quando é um dispositivo real. Um fone ou um mic físico NÃO
+                                 entrega áudio ao Discord, e sem este aviso o app parecia
+                                 estar funcionando enquanto ninguém do outro lado ouvia. -->
+                            <Border x:Name="CableChip" Background="{StaticResource EmeraldFaint}"
+                                    CornerRadius="{StaticResource CornerChip}" Height="19" Padding="8,0"
+                                    HorizontalAlignment="Left" Margin="0,6,0,0"
+                                    Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path x:Name="CableChipIcon" Data="{StaticResource IconCheck}"
+                                          Stroke="{StaticResource Emerald}"
+                                          StrokeThickness="2" StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                          VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <TextBlock x:Name="CableChipText" Text="Cabo virtual detectado"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Emerald}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <CheckBox x:Name="MonitorCheck" Style="{StaticResource ToggleSwitch}"
+                                      Margin="0,16,0,8" Checked="MonitorCheck_Changed" Unchecked="MonitorCheck_Changed">
+                                <TextBlock Text="Ouvir no meu fone" FontSize="13"
+                                           Foreground="{StaticResource TextHi}"/>
+                            </CheckBox>
+                            <ComboBox x:Name="MonitorCombo" Style="{StaticResource DarkCombo}"
+                                      SelectionChanged="Device_Changed"
+                                      AutomationProperties.Name="Dispositivo do fone"/>
+
+                            <Border Height="1" Background="{StaticResource Divider}" Margin="0,22,0,22"/>
+
+                            <TextBlock Text="VOLUMES" Style="{StaticResource RailLabel}"/>
+
+                            <Grid Margin="0,0,0,7">
+                                <TextBlock Text="Minha voz" FontSize="12" Foreground="{StaticResource TextMid}"/>
+                                <TextBlock x:Name="VoiceValueText" Text="100%" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextHi}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider x:Name="VoiceSlider" Style="{StaticResource ThinSlider}"
+                                    Minimum="0" Maximum="200" Value="100"
+                                    ValueChanged="VoiceSlider_ValueChanged"/>
+
+                            <!--
+                                MEDIDOR DE VOZ (estilo Discord).
+                                O truque: em vez de criar 20 retângulos, é UMA barra
+                                lisa com uma máscara de opacidade tijolada. A máscara é
+                                um DrawingBrush em TileMode="Tile" — ele repete um
+                                azulejo de 11px (retângulo de 8px + 3px de vão) por toda
+                                a largura, e só o que cai dentro dos retângulos aparece.
+                                Assim os segmentos saem de graça e, para animar, basta
+                                mexer numa propriedade só (a escala do preenchimento),
+                                sem recalcular layout 60 vezes por segundo.
+                            -->
+                            <Border x:Name="MicMeter" Height="6" Margin="0,10,0,0"
+                                    ToolTip="Nível da sua voz saindo para o mixer">
+                                <Border.OpacityMask>
+                                    <DrawingBrush TileMode="Tile" Stretch="None"
+                                                  Viewport="0,0,11,6" ViewportUnits="Absolute">
+                                        <DrawingBrush.Drawing>
+                                            <GeometryDrawing Brush="White">
+                                                <GeometryDrawing.Geometry>
+                                                    <RectangleGeometry Rect="0,0,8,6" RadiusX="2" RadiusY="2"/>
+                                                </GeometryDrawing.Geometry>
+                                            </GeometryDrawing>
+                                        </DrawingBrush.Drawing>
+                                    </DrawingBrush>
+                                </Border.OpacityMask>
+                                <Grid>
+                                    <!-- trilho apagado, sempre visível por baixo -->
+                                    <Rectangle Fill="{StaticResource Hover}"/>
+                                    <!-- preenchimento: cresce da esquerda via ScaleX -->
+                                    <Rectangle x:Name="MicMeterFill" Fill="{StaticResource Emerald}"
+                                               RenderTransformOrigin="0,0">
+                                        <Rectangle.RenderTransform>
+                                            <ScaleTransform ScaleX="0"/>
+                                        </Rectangle.RenderTransform>
+                                    </Rectangle>
+                                </Grid>
+                            </Border>
+
+                            <Grid Margin="0,16,0,7">
+                                <TextBlock Text="Efeitos" FontSize="12" Foreground="{StaticResource TextMid}"/>
+                                <TextBlock x:Name="EffectsValueText" Text="100%" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextHi}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Slider x:Name="EffectsSlider" Style="{StaticResource ThinSlider}"
+                                    Minimum="0" Maximum="200" Value="100"
+                                    ValueChanged="EffectsSlider_ValueChanged"/>
+
+                            <Border Height="20"/> <!-- respiro no fim da rolagem -->
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- O mixer liga sozinho ao abrir, então não há botão Iniciar:
+                         o rodapé do rail é só o estado de saúde. -->
+                    <Border Grid.Row="1" Background="{StaticResource Void}"
+                            BorderBrush="{StaticResource Divider}" BorderThickness="0,1,0,0"
+                            Padding="16,12,16,14">
+                        <StackPanel Orientation="Horizontal" MinHeight="34">
+                            <Ellipse x:Name="StatusDot" Width="7" Height="7"
+                                     Fill="{StaticResource Stroke}" VerticalAlignment="Top" Margin="0,4,7,0"/>
+                            <TextBlock x:Name="StatusText" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextDim}" Width="200"
+                                       Text="Ligando o mixer…"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ========== PALCO (áudio — acentos em rubi) ========== -->
+                <Grid Grid.Column="1" Background="{StaticResource Obsidian}">
+
+                    <!-- Brilho do topo: luz de um disco distante. Fica fora do
+                         ScrollViewer, então não rola junto com os cards. -->
+                    <Rectangle Fill="{StaticResource StageGlow}" IsHitTestVisible="False"/>
+
+                    <Grid Margin="24,24,24,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="0,0,0,22">
+                            <StackPanel VerticalAlignment="Bottom">
+                                <TextBlock Text="Meus sons" Style="{StaticResource StageTitle}"/>
+                                <TextBlock x:Name="CountText" Text="Nenhum som" FontSize="12"
+                                           Foreground="{StaticResource TextMid}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Button Content="+ Adicionar som" Style="{StaticResource GhostButton}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Click="AddSoundButton_Click"/>
+                        </Grid>
+
+                        <Grid Grid.Row="1">
+                            <!-- Estado vazio: some assim que existir um som -->
+                            <Grid x:Name="EmptyState" VerticalAlignment="Top" Margin="0,8,0,0">
+                                <Rectangle Stroke="{StaticResource Stroke}" StrokeThickness="1"
+                                           StrokeDashArray="4 3" RadiusX="8" RadiusY="8" Height="96"/>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="Nenhum som ainda." FontSize="12"
+                                               Foreground="{StaticResource TextDim}"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock FontSize="12" Foreground="{StaticResource TextDim}"
+                                               HorizontalAlignment="Center" Margin="0,3,0,0">
+                                        <Run Text="Clique em"/>
+                                        <Run Text="+ Adicionar som" Foreground="{StaticResource TextMid}" FontWeight="Bold"/>
+                                        <Run Text="para escolher arquivos .wav ou .mp3."/>
+                                    </TextBlock>
+                                    <TextBlock FontSize="11" Foreground="{StaticResource TextDim}"
+                                               HorizontalAlignment="Center" Margin="0,7,0,0"
+                                               Text="Eles ficam guardados na sua pasta do Soundz e voltam sozinhos na próxima vez."/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- A grade. ItemsControl cria um card por SoundItem da
+                                 coleção, usando o DataTemplate lá de cima. -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-12,0">
+                                <ItemsControl x:Name="SoundsList" ItemTemplate="{StaticResource SoundCardTemplate}"
+                                              Margin="0,0,12,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <!-- ================= TOCANDO AGORA ================= -->
+            <Border Grid.Row="2" Background="{StaticResource Elevated}"
+                    BorderBrush="{StaticResource Hover}" BorderThickness="0,1,0,0">
+                <Grid Margin="16,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="150"/>
+                        <ColumnDefinition Width="2*" MinWidth="280"/>
+                        <ColumnDefinition Width="*" MinWidth="150"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- esquerda: arte + nome -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border x:Name="NowArt" Width="44" Height="44"
+                                CornerRadius="{StaticResource CornerSm}"
+                                Background="{StaticResource Hover}">
+                            <Viewbox Width="26" Opacity="0.3" x:Name="NowArtIcon">
+                                <Path Data="{StaticResource IconWave}" Stroke="White" StrokeThickness="1.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            </Viewbox>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center" Margin="11,0,0,0">
+                            <TextBlock x:Name="NowName" Text="Nenhum som tocando" FontSize="13"
+                                       Foreground="{StaticResource TextMid}"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="NowSub" Text="Clique em um card para tocar" FontSize="11"
+                                       Foreground="{StaticResource TextMid}" Margin="0,1,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- centro: play/parar + barra de progresso -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button x:Name="PrevButton" Style="{StaticResource IconButton}"
+                                    Click="Prev_Click" Margin="0,0,14,0"
+                                    ToolTip="Som anterior" AutomationProperties.Name="Som anterior">
+                                <Path Data="{StaticResource IconPrev}"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            </Button>
+
+                            <Button x:Name="TransportButton" Style="{StaticResource TransportButton}"
+                                    Click="Transport_Click"
+                                    ToolTip="Tocar ou pausar" AutomationProperties.Name="Tocar ou pausar">
+                                <Path x:Name="TransportIcon" Data="{StaticResource IconPlay}"
+                                      Fill="{StaticResource Void}"/>
+                            </Button>
+
+                            <Button x:Name="NextButton" Style="{StaticResource IconButton}"
+                                    Click="Next_Click" Margin="14,0,0,0"
+                                    ToolTip="Próximo som" AutomationProperties.Name="Próximo som">
+                                <Path Data="{StaticResource IconNext}"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            </Button>
+                        </StackPanel>
+
+                        <Grid Margin="0,7,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="38"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="38"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="TimeCurrent" Grid.Column="0" Text="0:00" FontSize="11"
+                                       Foreground="{StaticResource TextMid}" VerticalAlignment="Center"/>
+                            <!-- Desabilitada até existir um som na barra: não há o que
+                                 procurar no vazio, e assim o toco do thumb não fica
+                                 parecendo "um pedacinho já tocado". -->
+                            <Slider x:Name="SeekSlider" Grid.Column="1" Style="{StaticResource ThinSlider}"
+                                    Minimum="0" Maximum="1" Value="0" Margin="9,0" IsEnabled="False"
+                                    AutomationProperties.Name="Posição do som"
+                                    ValueChanged="SeekSlider_ValueChanged"/>
+                            <TextBlock x:Name="TimeTotal" Grid.Column="2" Text="0:00" FontSize="11"
+                                       Foreground="{StaticResource TextMid}"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- direita: monitoramento + parar todos -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <!-- Também alterna o fone, ao vivo — atalho para o toggle
+                             do rail sem precisar sair da barra de reprodução. -->
+                        <Button x:Name="MonitorIcon" Style="{StaticResource IconButton}"
+                                Click="MonitorIcon_Click"
+                                ToolTip="Ouvir no meu fone"
+                                AutomationProperties.Name="Ouvir no meu fone">
+                            <Path Data="{StaticResource IconHeadphones}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Button>
+                        <Button Style="{StaticResource IconButton}" Margin="12,0,0,0"
+                                Click="StopAll_Click" ToolTip="Parar todos os sons"
+                                AutomationProperties.Name="Parar todos os sons">
+                            <Path Data="{StaticResource IconStop}"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- O nome que o Windows mostra: vira Soundz.exe, e o AssemblyTitle
+         (que alimenta a Descrição do arquivo, o Gerenciador de Tarefas e a
+         dica da barra de tarefas) herda daqui sozinho.
+         O RootNamespace segue Soundboard de propósito: é interno, invisível
+         para o usuário, e renomear em todo arquivo seria só retrabalho. -->
+    <RootNamespace>Soundboard</RootNamespace>
+    <AssemblyName>Soundz</AssemblyName>
+    <Product>Soundz</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+</Project>
