@@ -17,14 +17,52 @@ Licença MIT — use, modifique e redistribua à vontade.
 ## Instalação
 
 Baixe o `Soundz-*-setup.exe` mais recente em
-[Releases](https://github.com/LuisZanin/soundz/releases) e execute.
+[Releases](https://github.com/LuisZanin/Soundz/releases) e execute.
 
 O instalador não pede administrador (instala na sua pasta de usuário) e traz o
 .NET embutido — você não precisa instalar runtime nenhum.
 
-> O instalador não é assinado digitalmente, porque certificado de assinatura é
-> pago. O Windows vai mostrar um aviso do SmartScreen: clique em
-> **Mais informações → Executar assim mesmo**. Todo o código-fonte está aqui.
+### O Windows bloqueou o Soundz
+
+O instalador **não é assinado digitalmente** — certificado de assinatura de
+código é pago e recorrente. Por isso o Windows reclama. Existem dois avisos
+diferentes, e eles se resolvem de formas bem diferentes:
+
+**1. SmartScreen — "O Windows protegeu o computador"**
+
+É só um aviso de reputação, porque o arquivo é novo e pouca gente baixou ainda.
+Clique em **Mais informações → Executar assim mesmo** e siga normalmente.
+
+**2. Controle Inteligente de Aplicativos — "bloqueou este aplicativo"**
+
+Esse é mais severo: **bloqueia de vez, sem botão para continuar**, e não existe
+lista de exceções por aplicativo. Ou o programa é assinado, ou não roda.
+
+O Controle Inteligente de Aplicativos só vem ligado em instalações limpas do
+Windows 11, então nem todo mundo esbarra nele. Para conferir:
+
+**Configurações → Privacidade e segurança → Segurança do Windows → Controle de
+aplicativos e navegador → Controle Inteligente de Aplicativos**
+
+> [!WARNING]
+> Desligar essa proteção é **permanente**. Segundo a
+> [documentação da Microsoft](https://learn.microsoft.com/windows/apps/develop/smart-app-control/overview),
+> ela só pode ser ativada numa instalação limpa do Windows — depois de
+> desligada, só volta reinstalando ou redefinindo o sistema. Ela protege o PC
+> inteiro, não só o Soundz. Pense bem antes.
+
+Se preferir não desligar nada, a alternativa é
+[compilar do código-fonte](#compilar-do-código-fonte). Você fica com o mesmo app
+sem passar pelo instalador.
+
+**Por que isso ainda não está resolvido:** a correção de verdade é assinar os
+binários com um certificado de uma CA reconhecida pelo Windows — e, ao contrário
+do que se costuma dizer, **não precisa ser um certificado EV**: a documentação da
+Microsoft diz que o Controle Inteligente de Aplicativos libera qualquer binário
+assinado por CA do Trusted Root Program. O caminho pretendido é a
+[SignPath Foundation](https://signpath.io/solutions/open-source-community), que
+oferece assinatura gratuita para projetos de código aberto — o Soundz se
+enquadra (código público, licença MIT). Até lá, valem as instruções acima.
 
 Falta uma coisa, e ela é obrigatória:
 
@@ -151,7 +189,7 @@ Microfone errado na lista, mic mudo no Windows, ou "Minha voz" em 0%.
 Requer o [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
 ```powershell
-git clone https://github.com/LuisZanin/soundz.git
+git clone https://github.com/LuisZanin/Soundz.git
 cd soundz
 dotnet run
 ```

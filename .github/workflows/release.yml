@@ -86,9 +86,15 @@ jobs:
             Baixe o `Soundz-*-setup.exe` abaixo e execute.
 
             > O instalador não é assinado digitalmente (certificado de
-            > assinatura é pago). O Windows vai mostrar um aviso do
-            > SmartScreen: clique em **Mais informações → Executar assim
-            > mesmo**. O código-fonte inteiro está neste repositório.
+            > assinatura é pago). O Windows mostra um aviso do SmartScreen:
+            > clique em **Mais informações → Executar assim mesmo**.
+            >
+            > Se aparecer **"Controle Inteligente de Aplicativos bloqueou este
+            > aplicativo"**, é outro caso: esse bloqueia sem opção de continuar.
+            > O README explica as alternativas — atenção, desligar essa proteção
+            > é permanente.
+            >
+            > O código-fonte inteiro está neste repositório.
 
             **Você também precisa do [VB-Audio Virtual Cable](https://vb-audio.com/Cable/)**,
             que é gratuito e se instala separadamente. Sem ele o Soundz abre,

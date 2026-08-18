@@ -58,12 +58,14 @@ o "CABLE Output" como microfone e ouvem voz + efeitos.
   funciona sem SDK/runtime instalado no caminho. 162MB de pasta, 263 arquivos.
 - ✅ **Repositório preparado para ser público sob MIT** (decisão 20), com
   varredura de segredos feita.
-- ⬜ **O INSTALADOR NUNCA FOI COMPILADO NEM EXECUTADO.** O `installer/soundz.iss`
-  e o workflow estão escritos, mas o Inno Setup não está instalado nesta
-  máquina (o usuário escolheu gerar só pelo GitHub Actions). Então continuam
-  **não verificados**: a sintaxe do `.iss`, o tamanho final do `Setup.exe`, a
-  instalação sem UAC, a página de pré-requisito e os atalhos. A primeira tag
-  `v*` é o primeiro teste de verdade — conferir tudo isso lá.
+- ✅ **Instalador gerado e instalado com sucesso** na release `v1.0.1`
+  (relato do usuário: "deu certo, ficou ótimo"). Ou seja: a sintaxe do `.iss`
+  compila, o workflow completo funciona e a instalação conclui. **Ainda sem
+  medida**: o tamanho final do `Setup.exe` — perguntar ao usuário ou olhar a
+  aba Releases.
+- ⬜ **O app é bloqueado pelo Controle Inteligente de Aplicativos** por não ser
+  assinado (decisão 23). Documentado no README; a correção de verdade depende
+  de certificado.
 - ✅ **`Soundz.ico` existe** (decisão 22): 9 tamanhos verificados no arquivo
   (16→256, todos com canal alfa), gerado do próprio tema e embutido no
   executável. O ícone genérico do Windows sumiu.
@@ -347,6 +349,27 @@ Decisões importantes:
       porque branco sobre rubi dá 8.45:1 enquanto o anel fino de rubi sobre
       fundo escuro dá 2.04:1 (a própria regra de contraste do projeto). O
       usuário preferiu fidelidade à marca. **Não trocar sem perguntar de novo.**
+
+23. **Assinatura de código: o Controle Inteligente de Aplicativos bloqueia o
+    Soundz** (18/08). Confirmado na
+    [documentação da Microsoft](https://learn.microsoft.com/windows/apps/develop/smart-app-control/overview),
+    porque a internet repete três coisas erradas sobre isso:
+    - **SmartScreen ≠ Smart App Control.** O primeiro é aviso de reputação e
+      tem "Executar assim mesmo". O segundo **bloqueia sem saída** e **não tem
+      lista de exceções por aplicativo**. Só afeta instalações limpas do Win11.
+    - **Não precisa de certificado EV.** A documentação diz que o SAC libera
+      qualquer binário assinado por CA do Trusted Root Program. Certificado OV
+      resolve; o EV só acelera a reputação no SmartScreen.
+    - **Desligar o SAC é irreversível**: ele "só pode ser ativado numa
+      instalação limpa", então voltar atrás exige reinstalar/redefinir o
+      Windows. Qualquer instrução que mande desligar precisa dizer isso.
+    - Caminho pretendido: **SignPath Foundation**, que assina de graça projetos
+      de código aberto com código público e licença reconhecida — o Soundz se
+      enquadra. **Azure Trusted Signing foi descartado**: custa pouco (~US$10/mês)
+      mas, para desenvolvedor individual, a confiança pública está limitada a
+      EUA e Canadá, e o autor é brasileiro.
+    - Enquanto não houver assinatura, o README oferece as duas saídas honestas:
+      desligar a proteção (com o aviso de permanência) ou compilar do fonte.
 
 ## Investigação: "a voz só sai depois que eu toco um som" (18/08, em aberto)
 
